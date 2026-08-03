@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: springMybatisSql
+  # 数据源：MySQL 8
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 刻意不指定数据库名，由 schema.sql 自动创建 sql_learning_platform 库
+    url: jdbc:mysql://localhost:3306/?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root1234
+  # SQL 初始化：启动时自动执行建表 + 初始化数据
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+      data-locations: classpath:sql/data.sql
+      # 建表使用 CREATE TABLE IF NOT EXISTS，可重复执行
+      continue-on-error: false
+      encoding: utf-8
+
+# MyBatis / MyBatis Plus 配置
+mybatis-plus:
+  # Mapper XML 文件位置
+  mapper-locations: classpath:mapper/*.xml
+  # 实体类别名包：XML 中可直接写 resultType="Employee" 等
+  type-aliases-package: com.dev.springmybatissql.entity
+  configuration:
+    # 下划线转驼峰：database column -> java field (dept_id -> deptId)
+    map-underscore-to-camel-case: true
+    # 打印 SQL 到控制台，方便学习阶段观察执行过程
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+
+# 项目自定义配置
+sql-learning:
+  # 执行 SQL 时是否开启沙箱保护（禁止 delete/update 等危险语句）
+  sandbox-enabled: true
+
+logging:
+  level:
+    com.dev.springmybatissql.mapper: debug

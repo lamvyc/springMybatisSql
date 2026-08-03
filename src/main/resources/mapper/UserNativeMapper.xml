@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dev.springmybatissql.mapper.UserNativeMapper">
+
+    <!-- 新增用户：useGeneratedKeys 回填自增主键 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `user` (username, email, phone, status)
+        VALUES (#{username}, #{email}, #{phone}, #{status})
+    </insert>
+
+    <select id="selectById" resultType="User">
+        SELECT id, username, email, phone, status, create_time
+        FROM `user`
+        WHERE id = #{id}
+    </select>
+
+    <!-- 动态更新：只更新非空字段 -->
+    <update id="updateById">
+        UPDATE `user`
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM `user` WHERE id = #{id}
+    </delete>
+
+    <select id="selectByName" resultType="User">
+        SELECT id, username, email, phone, status, create_time
+        FROM `user`
+        WHERE username LIKE CONCAT('%', #{username}, '%')
+        ORDER BY id
+    </select>
+
+    <select id="selectByPage" resultType="User">
+        SELECT id, username, email, phone, status, create_time
+        FROM `user`
+        ORDER BY id
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM `user`
+    </select>
+
+</mapper>

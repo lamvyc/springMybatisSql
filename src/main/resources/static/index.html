@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 实验中心 - sql-learning-platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f7fa; color: #333; }
+        .header { background: #1f2937; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .header .sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+        .header .nav a { color: #60a5fa; text-decoration: none; font-size: 13px; margin-left: 12px; }
+        .container { display: flex; height: calc(100vh - 58px); }
+        /* 左侧题目列表 */
+        .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; overflow-y: auto; }
+        .sidebar .title { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #eee; font-size: 14px; background: #f9fafb; }
+        .case-item { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .15s; }
+        .case-item:hover { background: #f9fafb; }
+        .case-item.active { background: #eff6ff; border-left: 3px solid #3b82f6; }
+        .case-item .case-title { font-size: 13px; color: #111827; line-height: 1.4; }
+        .case-item .case-meta { margin-top: 6px; font-size: 11px; color: #6b7280; display: flex; gap: 8px; }
+        .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+        .tag-入门 { background: #dcfce7; color: #166534; }
+        .tag-进阶 { background: #fef9c3; color: #854d0e; }
+        .tag-困难 { background: #fee2e2; color: #991b1b; }
+        .tag-kp { background: #e0e7ff; color: #3730a3; }
+        /* 右侧主体 */
+        .main { flex: 1; display: flex; flex-direction: column; }
+        .desc-panel { padding: 16px 20px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+        .desc-panel h2 { font-size: 15px; margin-bottom: 8px; }
+        .desc-panel pre { font-size: 12px; color: #4b5563; white-space: pre-wrap; font-family: inherit; line-height: 1.6; }
+        .editor-panel { display: flex; flex: 1; min-height: 0; }
+        .editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .editor-bar { padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+        .editor-bar .btn { background: #3b82f6; color: #fff; border: none; padding: 6px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .editor-bar .btn:hover { background: #2563eb; }
+        .editor-bar .btn:disabled { background: #93c5fd; cursor: not-allowed; }
+        .editor-bar .hint { font-size: 12px; color: #9ca3af; }
+        #sqlEditor { flex: 1; width: 100%; border: none; padding: 16px; font-family: "SF Mono", "Consolas", monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none; }
+        .result-panel { width: 45%; border-left: 1px solid #e5e7eb; background: #fff; display: flex; flex-direction: column; min-width: 0; }
+        .result-bar { padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 13px; font-weight: 600; background: #f9fafb; }
+        .result-body { flex: 1; overflow: auto; padding: 16px; }
+        .verify-ok { background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+        .verify-fail { background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+        .verify-skip { background: #f3f4f6; color: #6b7280; padding: 6px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+        table { border-collapse: collapse; width: 100%; font-size: 12px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; }
+        th { background: #f9fafb; font-weight: 600; position: sticky; top: 0; }
+        .error-box { color: #dc2626; font-size: 12px; background: #fef2f2; padding: 10px; border-radius: 6px; }
+        .empty-box { color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 0; }
+        .cost { font-size: 11px; color: #6b7280; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>SQL 实验中心</h1>
+            <div class="sub">sql-learning-platform · 查看题目 → 编写SQL → 执行 → 自动比对结果</div>
+        </div>
+        <div class="nav">
+            <a href="/api/sql/cases">API: 题目列表</a>
+            <a href="/api/analysis/top-salary-by-dept">API: 题1示例</a>
+        </div>
+    </div>
+    <div class="container">
+        <!-- 左侧题目列表 -->
+        <div class="sidebar">
+            <div class="title">题目列表（共 <span id="caseCount">0</span> 题）</div>
+            <div id="caseList"></div>
+        </div>
+        <!-- 右侧主体 -->
+        <div class="main">
+            <div class="desc-panel">
+                <h2 id="caseTitle">请选择左侧题目</h2>
+                <pre id="caseDesc">选择一道题目开始练习 SQL。</pre>
+            </div>
+            <div class="editor-panel">
+                <div class="editor-wrap">
+                    <div class="editor-bar">
+                        <span class="hint">SELECT 查询语句（沙箱保护已开启）</span>
+                        <div>
+                            <button class="btn" id="runBtn" onclick="runSql()" disabled>执行 SQL</button>
+                            <button class="btn" style="background:#6b7280;margin-left:8px" onclick="loadStandard()">载入标准答案</button>
+                        </div>
+                    </div>
+                    <textarea id="sqlEditor" spellcheck="false" placeholder="SELECT ..." disabled></textarea>
+                </div>
+                <div class="result-panel">
+                    <div class="result-bar">执行结果</div>
+                    <div class="result-body" id="resultBody">
+                        <div class="empty-box">执行结果将显示在这里</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cases = [];
+        let currentCase = null;
+
+        // 加载题目列表
+        async function loadCases() {
+            const res = await fetch('/api/sql/cases');
+            const json = await res.json();
+            cases = json.data || [];
+            document.getElementById('caseCount').textContent = cases.length;
+            renderCaseList();
+            if (cases.length > 0) {
+                selectCase(cases[0].id);
+            }
+        }
+
+        function renderCaseList() {
+            const list = document.getElementById('caseList');
+            list.innerHTML = '';
+            for (const item of cases) {
+                const div = document.createElement('div');
+                div.className = 'case-item' + (currentCase && currentCase.id === item.id ? ' active' : '');
+                div.dataset.id = item.id;
+                div.innerHTML = `
+                    <div class="case-title">${item.id}. ${item.title}</div>
+                    <div class="case-meta">
+                        <span class="tag tag-${item.difficulty}">${item.difficulty}</span>
+                        <span class="tag tag-kp">${item.knowledgePoint}</span>
+                    </div>
+                `;
+                div.onclick = () => selectCase(item.id);
+                list.appendChild(div);
+            }
+        }
+
+        function selectCase(id) {
+            currentCase = cases.find(c => c.id === id);
+            if (!currentCase) return;
+            document.getElementById('caseTitle').textContent = `${currentCase.id}. ${currentCase.title}`;
+            document.getElementById('caseDesc').textContent = currentCase.description || '';
+            document.getElementById('sqlEditor').disabled = false;
+            document.getElementById('runBtn').disabled = false;
+            document.getElementById('sqlEditor').value = '';
+            renderCaseList();
+            // 清空结果
+            document.getElementById('resultBody').innerHTML = '<div class="empty-box">执行结果将显示在这里</div>';
+        }
+
+        // 载入标准答案
+        async function loadStandard() {
+            if (!currentCase) return;
+            const res = await fetch(`/api/sql/cases/${currentCase.id}`);
+            const json = await res.json();
+            const sqlCase = json.data;
+            if (sqlCase && sqlCase.standardSql) {
+                document.getElementById('sqlEditor').value = sqlCase.standardSql;
+            }
+        }
+
+        // 执行 SQL
+        async function runSql() {
+            if (!currentCase) return;
+            const sql = document.getElementById('sqlEditor').value.trim();
+            if (!sql) { alert('请输入 SQL'); return; }
+
+            const btn = document.getElementById('runBtn');
+            btn.disabled = true;
+            btn.textContent = '执行中...';
+
+            try {
+                const res = await fetch('/api/sql/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql: sql, caseId: currentCase.id })
+                });
+                const json = await res.json();
+                renderResult(json.data);
+            } catch (e) {
+                document.getElementById('resultBody').innerHTML = `<div class="error-box">请求失败：${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '执行 SQL';
+            }
+        }
+
+        // 渲染结果
+        function renderResult(data) {
+            const body = document.getElementById('resultBody');
+            if (!data) { body.innerHTML = '<div class="empty-box">无返回数据</div>'; return; }
+
+            let html = '';
+
+            // 验证反馈
+            if (data.verified === true) {
+                html += `<div class="verify-ok">✅ ${data.verifyMessage || '结果正确'}</div>`;
+            } else if (data.verified === false) {
+                html += `<div class="verify-fail">❌ ${data.verifyMessage || '结果不一致'}</div>`;
+            } else if (data.verified === null) {
+                html += `<div class="verify-skip">ℹ️ ${data.verifyMessage || ''}</div>`;
+            }
+
+            // 错误信息
+            if (!data.success) {
+                html += `<div class="error-box">执行失败：${data.errorMessage}</div>`;
+                body.innerHTML = html;
+                return;
+            }
+
+            // 结果表格
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            if (rows.length === 0) {
+                html += '<div class="empty-box">查询成功，无数据</div>';
+            } else {
+                html += `<table><thead><tr>`;
+                for (const col of cols) {
+                    html += `<th>${col}</th>`;
+                }
+                html += `</tr></thead><tbody>`;
+                for (const row of rows) {
+                    html += `<tr>`;
+                    for (const col of cols) {
+                        let val = row[col];
+                        if (val === null || val === undefined) val = '';
+                        html += `<td>${val}</td>`;
+                    }
+                    html += `</tr>`;
+                }
+                html += `</tbody></table>`;
+            }
+
+            html += `<div class="cost">⏱ 执行耗时：${data.costTime} ms · 共 ${rows.length} 行 · 影响 ${data.affectedRows} 行</div>`;
+            body.innerHTML = html;
+        }
+
+        loadCases();
+    </script>
+</body>
+</html>

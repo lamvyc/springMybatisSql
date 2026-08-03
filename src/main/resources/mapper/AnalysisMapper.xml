@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dev.springmybatissql.mapper.AnalysisMapper">
+
+    <!-- =========================================================
+         题1 每个部门薪资最高的员工
+         经典题：取得每个部门最高薪水的人员名称
+         SQL思路：
+         第一步：按部门分组，用 MAX 求各部门最高薪资
+         第二步：员工表 JOIN 上一步结果，匹配 部门+薪资
+         注意：若同一薪资多人，会返回多行（经典题可接受）
+         ========================================================= -->
+    <select id="topSalaryByDept" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            d.dept_name,
+            e.salary
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        JOIN (
+            SELECT dept_id, MAX(salary) AS max_salary
+            FROM employee
+            GROUP BY dept_id
+        ) m ON e.dept_id = m.dept_id AND e.salary = m.max_salary
+        ORDER BY d.id
+    </select>
+
+    <!-- =========================================================
+         题2 薪资高于部门平均薪资的员工
+         核心：JOIN 部门平均薪资子查询 + 关联比较
+         ========================================================= -->
+    <select id="aboveDeptAvgSalary" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            d.dept_name,
+            e.salary,
+            ROUND(a.avg_salary, 2) AS dept_avg_salary
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        JOIN (
+            SELECT dept_id, AVG(salary) AS avg_salary
+            FROM employee
+            GROUP BY dept_id
+        ) a ON e.dept_id = a.dept_id
+        WHERE e.salary > a.avg_salary
+        ORDER BY d.id, e.salary DESC
+    </select>
+
+    <!-- =========================================================
+         题3 每个部门平均薪资等级 + 各薪资等级员工数
+         核心：CROSS JOIN 薪资等级区间匹配（非等值连接）
+         ========================================================= -->
+    <select id="deptSalaryGradeStats" resultType="map">
+        SELECT
+            d.dept_name,
+            sg.grade,
+            COUNT(e.id) AS employee_count,
+            ROUND(AVG(e.salary), 2) AS avg_salary
+        FROM salary_grade sg
+        LEFT JOIN employee e
+            ON e.salary BETWEEN sg.low_salary AND sg.high_salary
+        LEFT JOIN department d ON e.dept_id = d.id
+        GROUP BY d.dept_name, sg.grade
+        ORDER BY d.dept_name, sg.grade
+    </select>
+
+    <!-- =========================================================
+         题5 不用 MAX 求最高薪资（方案一：ORDER BY + LIMIT）
+         ========================================================= -->
+    <select id="maxSalaryNoGroupFunc" resultType="java.math.BigDecimal">
+        SELECT salary
+        FROM employee
+        ORDER BY salary DESC
+        LIMIT 1
+    </select>
+
+    <!-- =========================================================
+         题6/7 平均薪资最高的部门
+         核心：子查询求平均 + ORDER BY 取第一名
+         ========================================================= -->
+    <select id="topAvgSalaryDept" resultType="map">
+        SELECT
+            d.id AS dept_id,
+            d.dept_name,
+            ROUND(AVG(e.salary), 2) AS avg_salary
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        GROUP BY d.id, d.dept_name
+        ORDER BY AVG(e.salary) DESC
+        LIMIT 1
+    </select>
+
+    <!-- =========================================================
+         题10/11 薪资 Top N（LIMIT 解决全局Top N，见阶段6分组TopN）
+         ========================================================= -->
+    <select id="salaryTopN" resultType="map">
+        SELECT
+            name AS employee_name,
+            salary,
+            position
+        FROM employee
+        ORDER BY salary DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- =========================================================
+         题12 最后入职的 N 名员工
+         ========================================================= -->
+    <select id="latestHire" resultType="map">
+        SELECT
+            name AS employee_name,
+            dept_id,
+            hire_date
+        FROM employee
+        ORDER BY hire_date DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- =========================================================
+         题14 所有员工及领导姓名（自连接）
+         注意：LEFT JOIN 才能保留没有领导的顶级员工
+         ========================================================= -->
+    <select id="employeeWithLeader" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            l.name AS leader_name,
+            e.position
+        FROM employee e
+        LEFT JOIN employee l ON e.leader_id = l.id
+        ORDER BY e.id
+    </select>
+
+    <!-- =========================================================
+         题15 入职早于直接上级的员工
+         自连接 + hire_date 比较
+         ========================================================= -->
+    <select id="earlierThanLeader" resultType="map">
+        SELECT
+            e.id AS employee_id,
+            e.name AS employee_name,
+            e.hire_date AS employee_hire_date,
+            d.dept_name,
+            l.name AS leader_name,
+            l.hire_date AS leader_hire_date
+        FROM employee e
+        JOIN employee l ON e.leader_id = l.id
+        JOIN department d ON e.dept_id = d.id
+        WHERE e.hire_date &lt; l.hire_date
+    </select>
+
+    <!-- =========================================================
+         题16 所有部门及员工信息（含无员工部门）
+         驱动表是 department，LEFT JOIN 保留零关联行
+         ========================================================= -->
+    <select id="allDeptWithEmployee" resultType="map">
+        SELECT
+            d.id AS dept_id,
+            d.dept_name,
+            e.id AS employee_id,
+            e.name AS employee_name,
+            e.salary
+        FROM department d
+        LEFT JOIN employee e ON e.dept_id = d.id
+        ORDER BY d.id, e.id
+    </select>
+
+    <!-- =========================================================
+         题17 员工数满足阈值的部门
+         HAVING 在分组后过滤，WHERE 不行
+         ========================================================= -->
+    <select id="deptWithMinEmployee" resultType="map">
+        SELECT
+            d.id AS dept_id,
+            d.dept_name,
+            COUNT(e.id) AS employee_count
+        FROM department d
+        JOIN employee e ON e.dept_id = d.id
+        GROUP BY d.id, d.dept_name
+        HAVING COUNT(e.id) &gt;= #{minCount}
+        ORDER BY employee_count DESC
+    </select>
+
+    <!-- =========================================================
+         题19 指定职位员工 + 部门名称 + 部门人数
+         关联子查询求部门人数（或 JOIN 聚合子查询）
+         ========================================================= -->
+    <select id="positionWithDeptAndCount" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            d.dept_name,
+            dept_info.cnt AS dept_employee_count
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        JOIN (
+            SELECT dept_id, COUNT(*) AS cnt
+            FROM employee
+            GROUP BY dept_id
+        ) dept_info ON e.dept_id = dept_info.dept_id
+        WHERE e.position = #{position}
+        ORDER BY d.id, e.id
+    </select>
+
+    <!-- =========================================================
+         题21 销售部员工（通过部门编码定位，不直接知道部门ID）
+         业务映射：经典题 SALES 部门 -> 销售部 dept_code='SALES'
+         ========================================================= -->
+    <select id="employeeInDept" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            e.salary,
+            d.dept_name
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        WHERE d.dept_code = #{deptCode}
+        ORDER BY e.salary DESC
+    </select>
+
+    <!-- =========================================================
+         题22 薪资高于公司平均的员工 + 所在部门/领导/薪资等级
+         综合：子查询 + 多表JOIN + 非等值连接薪资等级表
+         ========================================================= -->
+    <select id="aboveCompanyAvg" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            d.dept_name,
+            l.name AS leader_name,
+            sg.grade AS salary_grade,
+            e.salary
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        LEFT JOIN employee l ON e.leader_id = l.id
+        JOIN salary_grade sg ON e.salary BETWEEN sg.low_salary AND sg.high_salary
+        WHERE e.salary > (SELECT AVG(salary) FROM employee)
+        ORDER BY e.salary DESC
+    </select>
+
+    <!-- =========================================================
+         题25 薪资高于指定部门所有员工的员工（ALL 关键字）
+         经典题：薪金高于部门30中所有员工的薪金
+         ========================================================= -->
+    <select id="higherThanAllOfDept" resultType="map">
+        SELECT
+            e.name AS employee_name,
+            e.salary,
+            d.dept_name
+        FROM employee e
+        JOIN department d ON e.dept_id = d.id
+        WHERE d.id != #{deptId}
+          AND e.salary &gt; ALL (
+                SELECT salary FROM employee
+                WHERE dept_id = #{deptId} AND salary IS NOT NULL
+              )
+        ORDER BY e.salary
+    </select>
+
+    <!-- =========================================================
+         题26 每个部门员工数、平均薪资、平均服务年限
+         TIMESTAMPDIFF 计算服务年限（月/12）
+         ========================================================= -->
+    <select id="deptStats" resultType="map">
+        SELECT
+            d.id AS dept_id,
+            d.dept_name,
+            COUNT(e.id) AS employee_count,
+            ROUND(AVG(e.salary), 2) AS avg_salary,
+            ROUND(AVG(TIMESTAMPDIFF(YEAR, e.hire_date, CURDATE())), 1) AS avg_service_years
+        FROM department d
+        LEFT JOIN employee e ON e.dept_id = d.id
+        GROUP BY d.id, d.dept_name
+        ORDER BY d.dept_name
+    </select>
+
+    <!-- =========================================================
+         题31 员工年工资（13薪模拟），按年薪排序
+         ========================================================= -->
+    <select id="annualSalary" resultType="map">
+        SELECT
+            name AS employee_name,
+            salary AS month_salary,
+            salary * 13 AS annual_salary
+        FROM employee
+        ORDER BY annual_salary
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 1: 连续登录 N 天用户
+         窗口函数差集法：
+         第一步：ROW_NUMBER 按用户分区、日期排序生成序号
+         第二步：login_date - 序号 得到分组标识，同一值说明日期连续
+         第三步：按用户+分组标识聚合，统计连续天数，HAVING 过滤
+         ========================================================= -->
+    <select id="continuousLogin" resultType="map">
+        SELECT
+            user_id,
+            MIN(login_date) AS start_date,
+            MAX(login_date) AS end_date,
+            COUNT(*) AS continuous_days
+        FROM (
+            SELECT
+                user_id,
+                login_date,
+                DATE_SUB(login_date, INTERVAL ROW_NUMBER() OVER (
+                    PARTITION BY user_id ORDER BY login_date
+                ) DAY) AS grp
+            FROM login_log
+        ) t
+        GROUP BY user_id, grp
+        HAVING COUNT(*) &gt;= #{days}
+        ORDER BY user_id
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 2: 每个分类销量 Top N 商品
+         窗口函数 ROW_NUMBER 分组排序后由外层过滤
+         ========================================================= -->
+    <select id="categorySalesTopN" resultType="map">
+        SELECT
+            category_name,
+            product_name,
+            total_quantity,
+            rn
+        FROM (
+            SELECT
+                c.name AS category_name,
+                p.name AS product_name,
+                SUM(oi.quantity) AS total_quantity,
+                ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY SUM(oi.quantity) DESC) AS rn
+            FROM product p
+            JOIN category c ON p.category_id = c.id
+            LEFT JOIN order_item oi ON p.id = oi.product_id
+            GROUP BY c.id, c.name, p.id, p.name
+        ) t
+        WHERE rn &lt;= #{topN}
+        ORDER BY category_name, rn
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 3: 每月销售额 Top N 商品
+         DATE_FORMAT 月份分组 + ROW_NUMBER
+         ========================================================= -->
+    <select id="monthlySalesTopN" resultType="map">
+        SELECT
+            sale_month,
+            product_name,
+            sale_amount,
+            rn
+        FROM (
+            SELECT
+                DATE_FORMAT(o.create_time, '%Y-%m') AS sale_month,
+                p.name AS product_name,
+                SUM(oi.quantity * oi.price) AS sale_amount,
+                ROW_NUMBER() OVER (
+                    PARTITION BY DATE_FORMAT(o.create_time, '%Y-%m')
+                    ORDER BY SUM(oi.quantity * oi.price) DESC
+                ) AS rn
+            FROM order_item oi
+            JOIN `orders` o ON oi.order_id = o.id
+            JOIN product p ON oi.product_id = p.id
+            GROUP BY sale_month, p.id, p.name
+        ) t
+        WHERE rn &lt;= #{topN}
+        ORDER BY sale_month DESC, rn
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 4: 各薪资等级员工数（JOIN 非等值连接）
+         ========================================================= -->
+    <select id="salaryGradeCount" resultType="map">
+        SELECT
+            sg.grade,
+            sg.low_salary,
+            sg.high_salary,
+            COUNT(e.id) AS employee_count
+        FROM salary_grade sg
+        LEFT JOIN employee e ON e.salary BETWEEN sg.low_salary AND sg.high_salary
+        GROUP BY sg.grade, sg.low_salary, sg.high_salary
+        ORDER BY sg.grade
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 5: 订单状态分布（CASE WHEN 行列转换）
+         ========================================================= -->
+    <select id="orderStatusStats" resultType="map">
+        SELECT
+            COUNT(CASE WHEN status = 0 THEN 1 END) AS pending_payment,
+            COUNT(CASE WHEN status = 1 THEN 1 END) AS paid,
+            COUNT(CASE WHEN status = 2 THEN 1 END) AS shipped,
+            COUNT(CASE WHEN status = 3 THEN 1 END) AS completed,
+            COUNT(CASE WHEN status = 4 THEN 1 END) AS cancelled,
+            COUNT(*) AS total
+        FROM `orders`
+    </select>
+
+    <!-- =========================================================
+         阶段6 SQL 6: 用户消费排行（rank 并列排名）
+         ========================================================= -->
+    <select id="userConsumeRank" resultType="map">
+        SELECT
+            u.username,
+            COALESCE(c.total_amount, 0) AS total_amount,
+            rank() OVER (ORDER BY COALESCE(c.total_amount, 0) DESC) AS rank_no
+        FROM `user` u
+        LEFT JOIN (
+            SELECT user_id, SUM(total_amount) AS total_amount
+            FROM `orders`
+            WHERE status IN (1, 2, 3)
+            GROUP BY user_id
+        ) c ON u.id = c.user_id
+        ORDER BY rank_no
+    </select>
+
+</mapper>

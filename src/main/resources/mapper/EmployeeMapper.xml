@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dev.springmybatissql.mapper.EmployeeMapper">
+
+    <!-- =========================================================
+         SQL 1: 条件查询员工（动态 SQL 演示）
+         学习点：
+         - where 标签自动处理 AND/OR 前缀
+         - if 标签实现"有参数才拼条件"
+         - #{} 预编译占位，防止 SQL 注入
+         - CONCAT 实现模糊匹配
+         ========================================================= -->
+    <select id="selectByCondition" resultType="Employee">
+        SELECT
+            id, name, dept_id, leader_id, salary, position, hire_date
+        FROM employee
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="deptId != null">
+                AND dept_id = #{deptId}
+            </if>
+            <if test="minSalary != null">
+                AND salary &gt;= #{minSalary}
+            </if>
+            <if test="maxSalary != null">
+                AND salary &lt;= #{maxSalary}
+            </if>
+        </where>
+        ORDER BY salary DESC
+    </select>
+
+    <!-- =========================================================
+         SQL 2: ResultMap 演示（三表联查）
+         员工 + 部门 + 领导（employee 自连接）
+         resultMap 显式映射"列名到属性"，
+         适用于多表联查存在同名字段的情况
+         ========================================================= -->
+    <resultMap id="EmployeeWithDeptAndLeaderMap" type="com.dev.springmybatissql.vo.EmployeeVO">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="leaderId" column="leader_id"/>
+        <result property="leaderName" column="leader_name"/>
+        <result property="salary" column="salary"/>
+        <result property="position" column="position"/>
+        <result property="hireDate" column="hire_date"/>
+    </resultMap>
+
+    <select id="selectEmployeeWithDeptAndLeader" resultMap="EmployeeWithDeptAndLeaderMap">
+        SELECT
+            e.id,
+            e.name,
+            e.dept_id,
+            d.dept_name,
+            e.leader_id,
+            l.name AS leader_name,
+            e.salary,
+            e.position,
+            e.hire_date
+        FROM employee e
+        LEFT JOIN department d ON e.dept_id = d.id
+        LEFT JOIN employee l ON e.leader_id = l.id
+        ORDER BY e.id
+    </select>
+
+    <!-- =========================================================
+         SQL 3: 分页查询（原生 limit/offset 方式）
+         学习点：
+         - 参数映射 offset、size
+         - 大数据量时 offset 分页存在深翻页性能问题，
+           优化方案见阶段6游标分页（seek pagination）
+         ========================================================= -->
+    <select id="selectByPage" resultType="Employee">
+        SELECT
+            id, name, dept_id, leader_id, salary, position, hire_date
+        FROM employee
+        ORDER BY salary DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- =========================================================
+         SQL 4: 统计员工总数
+         ========================================================= -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM employee
+    </select>
+
+</mapper>
