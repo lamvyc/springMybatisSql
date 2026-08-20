@@ -9,6 +9,17 @@
          第一步：按部门分组，用 MAX 求各部门最高薪资
          第二步：员工表 JOIN 上一步结果，匹配 部门+薪资
          注意：若同一薪资多人，会返回多行（经典题可接受）
+
+         SQL注释：
+         join的总体执行顺序：先执行第一个 JOIN，得到"中间结果集"，再用这个中间结果集去 JOIN 第三个表（子查询 m）。
+         第 1 步：employee e JOIN department d
+            → 得到"员工 + 部门名称"的中间表（临时结果集）
+
+         第 2 步：子查询 m 单独执行
+            → 得到"每个部门的最高工资"
+
+         第 3 步：第 1 步的结果 JOIN 第 2 步的结果
+            → 过滤出"工资 = 本部门最高工资"的员工
          ========================================================= -->
     <select id="topSalaryByDept" resultType="map">
         SELECT
@@ -28,27 +39,45 @@
     <!-- =========================================================
          题2 薪资高于部门平均薪资的员工
          核心：JOIN 部门平均薪资子查询 + 关联比较
+         SQL思路：
+         1.每个部门的平均薪资是多少？
+         2.哪些员工的薪资 > 本部门平均？
+         当查询条件依赖一个"先计算出来才能用"的中间结果，而这个结果无法在单次表扫描中同时获得时，就需要子查询。
+
+
          ========================================================= -->
     <select id="aboveDeptAvgSalary" resultType="map">
+        -- 第4步：写 SELECT
         SELECT
             e.name AS employee_name,
             d.dept_name,
             e.salary,
             ROUND(a.avg_salary, 2) AS dept_avg_salary
+
+        -- 第1步：先写 FROM + 主表关联
         FROM employee e
-        JOIN department d ON e.dept_id = d.id
-        JOIN (
+                 JOIN department d ON e.dept_id = d.id
+
+            -- 第3步：JOIN 子查询（子查询本身是第2步先想好的）
+                 JOIN (
             SELECT dept_id, AVG(salary) AS avg_salary
             FROM employee
             GROUP BY dept_id
         ) a ON e.dept_id = a.dept_id
+
+        -- 第5步：WHERE 筛选
         WHERE e.salary > a.avg_salary
+
+        -- 第6步：ORDER BY 排序
         ORDER BY d.id, e.salary DESC
     </select>
 
     <!-- =========================================================
          题3 每个部门平均薪资等级 + 各薪资等级员工数
          核心：CROSS JOIN 薪资等级区间匹配（非等值连接）
+         需求拆解：
+         解题思路：先确认主表选择内连接还是外连接，本题是选择左连接，以salary_grade为主表，
+         因为可能刚好某一薪资等级没有对应的薪资
          ========================================================= -->
     <select id="deptSalaryGradeStats" resultType="map">
         SELECT
@@ -66,6 +95,16 @@
 
     <!-- =========================================================
          题5 不用 MAX 求最高薪资（方案一：ORDER BY + LIMIT）
+         方案二：
+         SELECT e1.salary
+         FROM employee e1
+         WHERE NOT EXISTS (
+           SELECT 1
+             FROM employee e2
+               WHERE e2.salary > e1.salary
+         );
+
+         SELECT 1 就是"返回固定值 1，每行一个"——不管在不在 EXISTS 里，行为都一样。在 EXISTS 里只是用它的"有行/无行"来判断真假。
          ========================================================= -->
     <select id="maxSalaryNoGroupFunc" resultType="java.math.BigDecimal">
         SELECT salary

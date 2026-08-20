@@ -59,3 +59,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         return employeeMapper.countAll();
     }
 }
+
+/**
+ *
+ * 情况	是否加 @Override	结果
+ * 方法名/参数完全正确	✅ 加	编译通过，语义清晰
+ * 方法名/参数完全正确	❌ 不加	编译通过，但不够规范
+ * 方法名/参数写错了	✅ 加	编译报错，立即发现问题 ✅
+ * 方法名/参数写错了	❌ 不加	编译通过，但接口方法未实现，运行时出错 ❌
+ * 建议：始终加上 @Override，这是 Java 开发的标准实践，IDE 也会自动帮您生成！
+ *
+ * */

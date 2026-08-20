@@ -24,6 +24,7 @@ INSERT IGNORE INTO `user` (id, username, email, phone, status, create_time) VALU
     (10, '郑小凡', 'zhengxf@example.com', '13800000010', 1, '2024-10-22 12:40:00');
 
 -- 自增起点（防止后续手工插入 id 冲突）
+-- 核心目的： 把 11~99 这块区域预留给未来可能的手工插入，下一次自动插入时，分配的 id 是 100，两者互不干扰。
 ALTER TABLE `user` AUTO_INCREMENT = 100;
 
 -- -------------------------------------------------------------

@@ -7,8 +7,7 @@ spring:
   # 数据源：MySQL 8
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 刻意不指定数据库名，由 schema.sql 自动创建 sql_learning_platform 库
-    url: jdbc:mysql://localhost:3306/?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/sql_learning_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: root1234
   # SQL 初始化：启动时自动执行建表 + 初始化数据
@@ -20,7 +19,6 @@ spring:
       # 建表使用 CREATE TABLE IF NOT EXISTS，可重复执行
       continue-on-error: false
       encoding: utf-8
-
 # MyBatis / MyBatis Plus 配置
 mybatis-plus:
   # Mapper XML 文件位置
@@ -34,7 +32,6 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     banner: false
-
 # 项目自定义配置
 sql-learning:
   # 执行 SQL 时是否开启沙箱保护（禁止 delete/update 等危险语句）

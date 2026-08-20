@@ -27,8 +27,8 @@ import java.util.regex.Pattern;
 @Service
 public class SqlCaseServiceImpl implements SqlCaseService {
 
-    /** 只允许 SELECT 开头的查询语句 */
-    private static final Pattern SELECT_PATTERN = Pattern.compile("^\\s*select\\s+.*", Pattern.CASE_INSENSITIVE);
+    /** 只允许 SELECT 开头的查询语句（DOTALL：支持格式化后含换行的 SQL） */
+    private static final Pattern SELECT_PATTERN = Pattern.compile("^\\s*select\\s+.*", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     /** 危险关键字黑名单（沙箱保护） */
     private static final String[] DANGEROUS_KEYWORDS = {
@@ -160,7 +160,20 @@ public class SqlCaseServiceImpl implements SqlCaseService {
 
         if (!actualCols.equals(expectedCols)) {
             vo.setVerified(false);
-            vo.setVerifyMessage("列名不一致。期望列：" + expectedCols + "，实际列：" + actualCols);
+            // 缺失列与多余列分开提示，并指引用户参见题干【期望输出列】
+            Set<String> missingCols = new TreeSet<>(expectedCols);
+            missingCols.removeAll(actualCols);
+            Set<String> extraCols = new TreeSet<>(actualCols);
+            extraCols.removeAll(expectedCols);
+            StringBuilder msg = new StringBuilder("列名不一致，请按题干【期望输出列】编写 SELECT。");
+            msg.append("期望列：").append(expectedCols).append("，实际列：").append(actualCols);
+            if (!missingCols.isEmpty()) {
+                msg.append("；缺少列：").append(missingCols);
+            }
+            if (!extraCols.isEmpty()) {
+                msg.append("；多余列：").append(extraCols);
+            }
+            vo.setVerifyMessage(msg.toString());
             return;
         }
 

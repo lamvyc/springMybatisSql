@@ -9,7 +9,13 @@
          - if 标签实现"有参数才拼条件"
          - #{} 预编译占位，防止 SQL 注入
          - CONCAT 实现模糊匹配
+
+         代码注释：
+         <where> 标签的两个核心作用
+            有条件的放行：如果没有条件，整个 WHERE 关键字不生成
+            自动去 AND：如果第一个条件前面有多余的 AND，自动去掉
          ========================================================= -->
+
     <select id="selectByCondition" resultType="Employee">
         SELECT
             id, name, dept_id, leader_id, salary, position, hire_date

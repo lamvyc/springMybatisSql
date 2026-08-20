@@ -15,7 +15,8 @@ import lombok.Data;
 @TableName("sql_case")
 public class SqlCase {
 
-    @TableId(type = IdType.AUTO)
+    // 使用 INPUT：初始化器按枚举定义的 id 插入（upsert 需固定 id）
+    @TableId(type = IdType.INPUT)
     private Long id;
 
     /** 题目标题 */

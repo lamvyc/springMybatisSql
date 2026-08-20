@@ -1,6 +1,5 @@
 package com.dev.springmybatissql.config;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dev.springmybatissql.entity.SqlCase;
 import com.dev.springmybatissql.mapper.SqlCaseMapper;
 import com.dev.springmybatissql.mapper.SqlExecutorMapper;
@@ -25,7 +24,8 @@ import java.util.Map;
  *
  * 题目定义集中在 {@link SqlCaseEnum} 枚举中，此处只负责遍历枚举 → 执行SQL → 入库。
  *
- * 幂等设计：sql_case 表已有数据则跳过，不重复插入。
+ * 幂等设计：按 id upsert（存在则更新、不存在则插入）。
+ * 这样修改枚举中的题干/期望列/标准答案后，重启应用即自动生效，无需手动 TRUNCATE。
  */
 @Slf4j
 @Component
@@ -42,23 +42,27 @@ public class SqlCaseInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        Long count = sqlCaseMapper.selectCount(new QueryWrapper<>());
-        if (count != null && count > 0) {
-            log.info("SQL 实验中心：sql_case 已有 {} 道题，跳过初始化", count);
-            return;
-        }
-
         List<SqlCase> cases = buildCases();
+        int inserted = 0;
+        int updated = 0;
         for (SqlCase sqlCase : cases) {
             try {
                 List<Map<String, Object>> rows = sqlExecutorMapper.executeSelect(sqlCase.getStandardSql());
                 sqlCase.setExpectedResult(buildExpectedJson(rows));
-                sqlCaseMapper.insert(sqlCase);
+
+                SqlCase exist = sqlCaseMapper.selectById(sqlCase.getId());
+                if (exist == null) {
+                    sqlCaseMapper.insert(sqlCase);
+                    inserted++;
+                } else {
+                    sqlCaseMapper.updateById(sqlCase);
+                    updated++;
+                }
             } catch (Exception e) {
                 log.error("初始化题目失败 id={} title={} 原因={}", sqlCase.getId(), sqlCase.getTitle(), e.getMessage());
             }
         }
-        log.info("SQL 实验中心：成功初始化 {} 道题目", cases.size());
+        log.info("SQL 实验中心：共 {} 道题，新增 {} 道，更新 {} 道", cases.size(), inserted, updated);
     }
 
     /**
