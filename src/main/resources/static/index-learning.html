@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MySQL 索引实战 · 互动验证台</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f7fa; color: #333; }
+  .header { background: #1f2937; color: #fff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header .sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+  .header .nav a { color: #60a5fa; text-decoration: none; font-size: 13px; margin-left: 12px; }
+  .header .nav a:hover { text-decoration: underline; }
+  .layout { display: flex; height: calc(100vh - 58px); }
+  /* ---------- 左侧 ---------- */
+  .sidebar { width: 320px; background: #fff; border-right: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; }
+  .side-sec { padding: 12px 14px; border-bottom: 1px solid #f0f2f5; }
+  .side-title { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .side-title .mini { font-size: 11px; color: #9ca3af; font-weight: normal; }
+  .tbl-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .tbl-card .head { display: flex; justify-content: space-between; font-size: 12px; color: #374151; }
+  .tbl-card .head b { font-size: 12px; }
+  .tbl-card .rows { color: #6b7280; font-size: 11px; }
+  .idx-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .idx-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #eef2ff; color: #3730a3; border: 1px solid #e0e7ff; }
+  .idx-tag.pk { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+  .idx-tag.uk { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+  .empty-tip { color: #9ca3af; font-size: 11px; }
+  .side-btns { display: flex; gap: 6px; margin-bottom: 6px; }
+  .btn { border: none; border-radius: 6px; cursor: pointer; font-size: 12px; padding: 5px 12px; }
+  .btn-blue { background: #3b82f6; color: #fff; }
+  .btn-blue:hover { background: #2563eb; }
+  .btn-ghost { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .btn-ghost:hover { background: #e5e7eb; }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .phone-chip { background: #0f172a; color: #7dd3fc; font-family: monospace; font-size: 12px; padding: 3px 8px; border-radius: 6px; }
+  /* 阶段目录 */
+  .stage-item { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .15s; display: flex; align-items: center; gap: 8px; }
+  .stage-item:hover { background: #f9fafb; }
+  .stage-item.active { background: #eff6ff; border-left: 3px solid #3b82f6; }
+  .stage-no { width: 30px; height: 30px; border-radius: 50%; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stage-item.active .stage-no { background: #3b82f6; color: #fff; }
+  .stage-item .txt { flex: 1; }
+  .stage-item .t { font-size: 13px; color: #111827; }
+  .stage-item .d { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  /* ---------- 右侧 ---------- */
+  .main { flex: 1; overflow-y: auto; padding: 18px 22px; min-width: 0; }
+  .stage-head { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .stage-head h2 { font-size: 17px; margin-bottom: 6px; }
+  .stage-head .doc { font-size: 12px; color: #2563eb; margin-bottom: 8px; }
+  .stage-head p { font-size: 13px; color: #4b5563; line-height: 1.7; }
+  .stage-tools { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .stage-tools .hint { font-size: 12px; color: #9ca3af; }
+  .banner { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: 8px; padding: 10px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+  .banner.warn { background: #fefce8; border-color: #fde047; color: #854d0e; }
+  /* 步骤卡片 */
+  .step { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+  .step .s-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #f0f2f5; }
+  .step .s-no { width: 22px; height: 22px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step .s-title { font-size: 13px; font-weight: 600; color: #111827; }
+  .step .s-body { padding: 12px 14px; }
+  .step .s-desc { font-size: 13px; color: #4b5563; line-height: 1.7; margin-bottom: 10px; }
+  .step .s-desc code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #be185d; }
+  .step .observe { font-size: 12px; color: #92400e; background: #fffbeb; border-left: 3px solid #f59e0b; padding: 6px 10px; border-radius: 0 6px 6px 0; margin-bottom: 10px; line-height: 1.6; }
+  .sql-area { width: 100%; min-height: 56px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; line-height: 1.6; resize: vertical; outline: none; color: #111827; background: #f8fafc; }
+  .sql-area:focus { border-color: #3b82f6; background: #fff; }
+  .s-actions { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+  .s-actions .spent { font-size: 11px; color: #6b7280; }
+  .res { margin-top: 10px; border-top: 1px dashed #e5e7eb; padding-top: 10px; }
+  .res h4 { font-size: 12px; color: #374151; margin-bottom: 6px; }
+  .ok-box { background: #ecfdf5; color: #065f46; padding: 8px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 8px; }
+  .err-box { background: #fef2f2; color: #b91c1c; padding: 8px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 8px; white-space: pre-wrap; line-height: 1.6; }
+  .explain-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: #f3f4f6; color: #374151; }
+  .chip b { font-size: 12px; }
+  .chip.type-ALL { background: #fee2e2; color: #991b1b; }
+  .chip.type-ref, .chip.type-range, .chip.type-const, .chip.type-index_merge { background: #dcfce7; color: #166534; }
+  .chip.bad { background: #fef3c7; color: #92400e; }
+  .chip.good { background: #dcfce7; color: #166534; }
+  .tbl-wrap { overflow: auto; max-height: 320px; border: 1px solid #e5e7eb; border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #e5e7eb; padding: 5px 9px; text-align: left; white-space: nowrap; }
+  th { background: #f9fafb; font-weight: 600; position: sticky; top: 0; }
+  td.num { font-family: Consolas, monospace; }
+  .notice { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #475569; line-height: 1.8; }
+  .notice b { color: #1e293b; }
+  .footer-note { font-size: 12px; color: #9ca3af; margin-top: 16px; }
+  .toast { position: fixed; top: 66px; right: 18px; background: #1f2937; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 60vw; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: #b91c1c; }
+  .stage-end { margin-top: 8px; }
+  .sum-box { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #064e3b; line-height: 1.9; }
+  .sum-box b { color: #065f46; }
+  .kv { display: inline-block; background: #0f172a; color: #e2e8f0; font-family: Consolas, monospace; padding: 2px 7px; border-radius: 5px; font-size: 12px; margin: 2px 3px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>MySQL 索引实战 · 互动验证台</h1>
+    <div class="sub">不背概念 · 点按钮跑真实 SQL → 看 EXPLAIN 前后变化（数据：30万用户 / 20万商品 / 100万订单）</div>
+  </div>
+  <div class="nav">
+    <a href="/index-learning.html" style="color:#93c5fd;">当前：索引实战台</a>
+    <a href="/">← SQL 实验中心</a>
+    <a href="https://dev.mysql.com/doc/refman/8.0/en/explain-output.html" target="_blank">EXPLAIN 官方文档</a>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- ============ 左侧：数据概览 + 阶段目录 ============ -->
+  <div class="sidebar">
+    <div class="side-sec">
+      <div class="side-title">数据概览（mall_*）<span class="mini">示例手机号：<span class="phone-chip" id="samplePhone">…</span></span></div>
+      <div id="stateBox"><div class="empty-tip">加载中…</div></div>
+      <div class="side-btns">
+        <button class="btn btn-ghost" id="btnRefresh">↻ 刷新概览</button>
+        <button class="btn btn-blue" id="btnReset" title="删除本教程建过的所有二级索引（不删数据），回到只有主键+业务唯一索引的初始态">回到初始态</button>
+      </div>
+      <div style="font-size:11px;color:#9ca3af;line-height:1.6;">“回到初始态”= 每阶段开头最干净的状态。顺序学习建议：00 → 01 → … → 06。</div>
+    </div>
+
+    <div class="side-sec" style="padding:0;">
+      <div class="side-title" style="padding:12px 14px 8px;border-bottom:1px solid #f0f2f5;margin-bottom:0;">学习路径</div>
+      <div id="stageNav"></div>
+    </div>
+  </div>
+
+  <!-- ============ 右侧：当前阶段 ============ -->
+  <div class="main" id="main"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+ * 常量：本教程所有可交互步骤（与 docs/mysql-index 各阶段一一对应）
+ * 步骤类型：
+ *   info : 只读说明
+ *   run  : 一条可执行语句（SQL 里的 {{phone}} 会自动替换成你库里的真实手机号）
+ * ============================================================ */
+const API = '/api/index-demo';
+const PHONE_PLACEHOLDER = '{{phone}}';
+let SAMPLE_PHONE = '13713529579';
+
+/* ---------------- 步骤数据 ---------------- */
+const ORDER_COLS = 'id, order_no, user_id, status, pay_amount, create_time';
+const Q_MY = `SELECT ${ORDER_COLS} FROM mall_order WHERE user_id = 29997 AND status = 1 ORDER BY create_time DESC LIMIT 20`;
+const Q_ADMIN = `SELECT ${ORDER_COLS} FROM mall_order WHERE status = 1 AND create_time BETWEEN '2024-06-01 00:00:00' AND '2024-06-30 23:59:59' ORDER BY create_time DESC LIMIT 50`;
+const Q_P_ALL = `SELECT * FROM mall_product WHERE category_id = 37 AND status = 1 ORDER BY price DESC LIMIT 20`;
+const Q_P_LIGHT = `SELECT id, category_id, price, stock FROM mall_product WHERE category_id = 37 AND status = 1 ORDER BY price DESC LIMIT 20`;
+
+const STAGES = [
+/* ============================ 00 ============================ */
+{
+  id: '00', no: '00', name: '准备与造数', doc: 'docs/mysql-index/00-准备与造数.md', intro: '先有“量大到能看出差别”的业务表。注意：建表/造数必须在 MySQL 客户端做一次（页面安全上不允许删表重建），做完后本页概览会自动显示 30万/20万/100万 行。',
+  banner: '还没造过数？在终端执行：<br><code>mysql -h127.0.0.1 -uroot -proot1234 sql_learning_platform &lt; docs/mysql-index/sql/00_建表与造数.sql</code>',
+  steps: [
+    { t: 'info', title: '为什么单独一套 mall_* 表？', desc: '原项目的 user/orders/product 只有几十行，仅供 SQL 实验台练习。<b>索引学习必须数据量大</b>，所以新建 mall_user / mall_product / mall_order（前缀 mall_ 与原表完全隔离，互不影响）。建表时<b>刻意只留主键 + 业务唯一索引</b>，让你从“没有二级索引”的状态开始学。' },
+    { t: 'run', title: '看看三张表的行数与当前索引（应只有 PRIMARY / uk_*）', desc: '全表扫与索引的差别，只有在“百万行”上才看得出来。先确认数据就位、索引是初始态。', sql: 'SHOW INDEX FROM mall_user;' },
+    { t: 'run', title: '订单状态分布（模拟真实业务：已支付最多）', desc: '数据看起来“像真实订单”，后面阶段 2 会证明 status 这种低区分度列为什么不适合单列索引。', sql: 'SELECT status, COUNT(*) AS cnt FROM mall_order GROUP BY status ORDER BY status;' },
+    { t: 'run', title: '取一个真实手机号（下面每阶段都要用）', desc: '造数是随机的，每个人的号码不同。记下结果里的一个 phone，也可以直接复制页面右上角的“示例手机号”。', sql: 'SELECT username, phone FROM mall_user ORDER BY id LIMIT 5;' },
+    { t: 'info', title: '本阶段总结', desc: '<b>学会了：</b>表结构刻意“没索引”；<b>日常：</b>大表才谈索引；<b>面试：</b>索引是空间换时间，小表/写多表别乱建。' }
+  ]
+},
+/* ============================ 01 ============================ */
+{
+  id: '01', no: '01', name: '第一次使用索引', doc: 'docs/mysql-index/01-第一次使用索引.md',
+  intro: '完整经历：没索引 → EXPLAIN → CREATE INDEX → 再 EXPLAIN。看懂 type / key / rows / Extra 四列 = 学会判断“索引有没有生效”。',
+  reset: true,
+  steps: [
+    { t: 'info', title: '业务场景：后台“按手机号查用户”', desc: '客服在后台输入手机号查用户资料。SQL 只有一句 WHERE 等值，但 30 万行里怎么找？先别建索引，看 MySQL 最笨的方式。' },
+    { t: 'run', title: '第 1 次查询（此刻 phone 没有索引）', desc: '能查到 1 行，但看不出“过程”。真正要看的是下面 EXPLAIN。', sql: `SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+    { t: 'run', title: 'EXPLAIN：看 MySQL 是怎么找的（重点记下 type / key / rows）', desc: '', observe: '预期：type=ALL（全表扫）、key=NULL（没走索引）、rows≈299124（扫约 30 万行）、Extra=Using where。耗时约 60~80ms。', sql: `EXPLAIN SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+    { t: 'info', title: '读 EXPLAIN 的 4 个最重要字段', desc: '<b>type</b>：访问类型，ALL=全表扫（最差）；<b>key</b>：真正用到的索引，NULL=没用上；<b>rows</b>：预估扫描行数（越小越好）；<b>Extra</b>：Using filesort=排序自己做（要警惕）。' },
+    { t: 'run', title: 'CREATE INDEX 建索引', desc: '逐词：CREATE INDEX <b>索引名</b> ON <b>表</b>(<b>列</b>)。为什么建在 phone 上？① 它是高频 WHERE 条件；② 30 万里几乎每行不同（区分度极高）。', observe: '成功后，到左侧点“↻ 刷新概览”，user 表会多出 idx_user_phone。', sql: 'CREATE INDEX idx_user_phone ON mall_user (phone);' },
+    { t: 'run', title: '同一句 SQL 再查一次', desc: '结果一样，但过程已经变了。', sql: `SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+    { t: 'run', title: '再 EXPLAIN，逐字段对比', desc: '', observe: '预期：type=ref、key=idx_user_phone、rows=1。这就是“索引生效”的硬证据。', sql: `EXPLAIN SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+    { t: 'info', title: '前后对比结论', desc: '建索引前：ALL / key=NULL / rows≈299124 / ~70ms → 建索引后：ref / idx_user_phone / rows=1 / ~20ms（含连接开销）。MySQL 现在走 idx_user_phone 这棵 B+ 树二分定位，再从叶子拿主键回表取完整行。<br><b>一句话记忆锚点：EXPLAIN 里 type 从 ALL 变 ref、rows 从 30 万变 1 —— 索引生效了。</b>' }
+  ]
+},
+/* ============================ 02 ============================ */
+{
+  id: '02', no: '02', name: '单列索引', doc: 'docs/mysql-index/02-单列索引.md',
+  intro: '回答 4 问：什么字段适合建索引（区分度）？主键/二级/唯一索引的区别？索引为什么快？为什么不是越多越好？',
+  reset: true,
+  steps: [
+    { t: 'info', title: '两个对比实验：高区分度 vs 低区分度', desc: '给“高区分度”的 phone 建索引 vs 给“低区分度”的 status（全表只有 5 种取值）建索引，看优化器怎么选。' },
+    { t: 'run', title: '高区分度：phone（30 万里几乎一个值）', desc: '先建索引（若刚点过“回到初始态”，此时必然可建）。', sql: 'CREATE INDEX idx_user_phone ON mall_user (phone);' },
+    { t: 'run', title: 'EXPLAIN：phone 等值查询', desc: '', observe: '预期：ref / idx_user_phone / rows=1。30 万选 1 → 索引定位 1 行。', sql: `EXPLAIN SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+    { t: 'run', title: '低区分度：先看 status 的真实分布', desc: 'status 只有 5 种取值，其中 status=1（已支付）占了约一半。', sql: 'SELECT status, COUNT(*) AS cnt FROM mall_order GROUP BY status;' },
+    { t: 'run', title: '给 status 建索引，再 EXPLAIN status=1', desc: '', observe: '预期：ref / idx_order_status / rows≈498125（约 50 万行！）。索引“被用了”但等于翻半张表，若 SELECT * 还要几十万次回表——并不比全表扫划算。这就是“低区分度列不适合单列索引”。', sql: 'CREATE INDEX idx_order_status ON mall_order (status);' },
+    { t: 'run', title: 'EXPLAIN：status=0（约 10 万行）', desc: '比例小一些，但仍是“几十万行”量级。', sql: 'EXPLAIN SELECT * FROM mall_order WHERE status = 0;' },
+    { t: 'run', title: '演示完删掉低区分度索引（留着无益）', desc: '', sql: 'DROP INDEX idx_order_status ON mall_order;' },
+    { t: 'info', title: '三种索引形态（都在本工程里）', desc: '<b>主键索引</b>：建表 PRIMARY KEY 自动生成，InnoDB 表数据按它组织；<b>唯一索引</b>：UNIQUE KEY 自动生成（username / order_no）；<b>二级索引</b>：CREATE INDEX 手建（phone）。下方三条 SQL 逐一验证。' },
+    { t: 'run', title: 'EXPLAIN：主键等值 id = 137', desc: '', observe: '预期：type=const（按主键定位，理论最快）。', sql: 'EXPLAIN SELECT * FROM mall_user WHERE id = 137;' },
+    { t: 'run', title: 'EXPLAIN：主键范围 id BETWEEN', desc: '', observe: '预期：type=range，一次定位起点向后取 101 行。', sql: 'EXPLAIN SELECT * FROM mall_user WHERE id BETWEEN 100 AND 200;' },
+    { t: 'run', title: 'EXPLAIN：唯一索引等值 username', desc: '', observe: '预期：type=const / key=uk_username。唯一索引等值 = 最多 1 行。', sql: "EXPLAIN SELECT * FROM mall_user WHERE username = 'user_123';" },
+    { t: 'info', title: '索引为什么快？（机制图）', desc: '没索引 = 30 万行一行行翻（O(N)）；有索引 = 在按列排好序的 B+ 树上自顶向下二分，3~4 层就定位到叶子页（O(logN)），再顺着叶子链表取目标行。<br>type 总排序：<code>const &gt; ref &gt; range &gt; index &gt; ALL</code>。' },
+    { t: 'info', title: '为什么不是越多越好？（用数字说话）', desc: '每个索引都要为整张表“另存一份有序目录”：① 占磁盘/内存；② 每次 INSERT/UPDATE/DELETE 都要同步维护每一棵 B+ 树（写放大）。下方现场演示空间成本。' },
+    { t: 'run', title: '在 100 万行订单上建一个单列索引', desc: '建完去左侧点“↻ 刷新概览”，对比 mall_order 的“索引体积”变化。', observe: '实测：仅主键+唯一索引时索引约 26.6MB；每加一个联合索引约多 26MB。索引真的是要“花钱”的。', sql: 'CREATE INDEX idx_user_id ON mall_order (user_id);' },
+    { t: 'run', title: '删掉它，继续学习', desc: '', sql: 'DROP INDEX idx_user_id ON mall_order;' }
+  ]
+},
+/* ============================ 03 ============================ */
+{
+  id: '03', no: '03', name: '联合索引', doc: 'docs/mysql-index/03-联合索引.md',
+  intro: '真实接口“我的订单列表”：WHERE user_id=? AND status=? ORDER BY create_time DESC。把索引从 (user_id) 一路升级到 (user_id, status, create_time)，看每一步 EXPLAIN 的变化。',
+  reset: true,
+  steps: [
+    { t: 'info', title: '教学主角：user_id = 29997（他有 53 笔订单，已支付 15 笔）', desc: '先看他的订单构成，后面每一步都用同一句业务 SQL。', sql: 'SELECT user_id, status, COUNT(*) AS cnt FROM mall_order WHERE user_id = 29997 GROUP BY user_id, status ORDER BY status;' },
+    { t: 'run', title: '第 0 步：不建索引，EXPLAIN 业务 SQL', desc: '', observe: '预期：type=ALL / rows≈996250 / Extra=Using where; Using filesort。100 万里找 15 行却要全扫 + 排序，实测 190~240ms。', sql: `EXPLAIN ${Q_MY};` },
+    { t: 'run', title: '第 1 步：建单列索引 (user_id)', desc: '只有一个条件进索引，另一个条件(status)与排序(create_time)仍然自己处理。', sql: 'CREATE INDEX idx_user_id ON mall_order (user_id);' },
+    { t: 'run', title: 'EXPLAIN 同一句业务 SQL（user_id + status 都有）', desc: '', observe: '预期：ref / idx_user_id / rows≈53 / Extra 还有 filesort。单列索引只帮了一半。', sql: `EXPLAIN ${Q_MY};` },
+    { t: 'run', title: '第 2 步：升级成 (user_id, status)', desc: '把 status 也吃进索引。注意：旧索引 idx_user_id 被新索引“前缀覆盖”，先删旧的。', sql: 'DROP INDEX idx_user_id ON mall_order;' },
+    { t: 'run', title: '（接上一步）CREATE INDEX idx_user_status', desc: '', sql: 'CREATE INDEX idx_user_status ON mall_order (user_id, status);' },
+    { t: 'run', title: 'EXPLAIN 同一句 SQL', desc: '', observe: '预期：ref / idx_user_status / key_len=9(8+1) / rows≈15。status 也进索引了，但 Extra 还有 Using filesort——create_time 不在索引里。', sql: `EXPLAIN ${Q_MY};` },
+    { t: 'run', title: '第 3 步：升级成 (user_id, status, create_time)', desc: '把 ORDER BY 的列也放进来，排序交给索引。', sql: 'DROP INDEX idx_user_status ON mall_order;' },
+    { t: 'run', title: '（接上一步）CREATE INDEX idx_user_status_ct', desc: '', sql: 'CREATE INDEX idx_user_status_ct ON mall_order (user_id, status, create_time);' },
+    { t: 'run', title: 'EXPLAIN 同一句 SQL —— filesort 消失了！', desc: '', observe: '预期：ref / idx_user_status_ct / rows≈15 / Extra=Backward index scan（倒着读索引满足 ORDER BY DESC，filesort 消失）。实测 190~240ms → 20ms 级。', sql: `EXPLAIN ${Q_MY};` },
+    { t: 'info', title: '最左前缀，亲手验证两条', desc: '① 只带 user_id 不带 status（中间列缺失）→ 第三列 create_time 的有序性用不上，又要 filesort；② 跳过 user_id 只按 status+时间 → 整个索引用不上，全表扫。两条 SQL 都在下面。' },
+    { t: 'run', title: '验证 ①：只有 user_id（没有中间列 status）', desc: '', observe: '预期：ref / rows≈53 / Extra=Using filesort（create_time 顺序能力用不上）。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE user_id = 29997 ORDER BY create_time DESC LIMIT 20;` },
+    { t: 'run', title: '验证 ②：跳过最左列 user_id，按 status + 时间区间', desc: '', observe: '预期：type=ALL / key=NULL / rows≈996250。联合索引必须从最左列开始用。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE status = 1 AND create_time BETWEEN '2024-06-01 00:00:00' AND '2024-06-30 23:59:59' ORDER BY create_time DESC LIMIT 20;` },
+    { t: 'info', title: '列序口诀 + 本阶段总结', desc: '<b>等值条件在前（区分度高者优先）→ 范围列 → 排序列殿后。</b>（a,b,c）能用 a / a,b / a,b,c；b、b,c 用不上；a,c 只用得到 a。<br>（user_id,status,create_time）同时服务“只看 user_id”“user+status”“user+status+排序”三种 SQL 形态，旧的单列索引可删。<br><b>记忆锚点：联合索引像按“姓氏→名字→生日”排的电话本：从头连续翻才找得到。</b>' }
+  ]
+},
+/* ============================ 04 ============================ */
+{
+  id: '04', no: '04', name: '回表与覆盖索引', doc: 'docs/mysql-index/04-回表与覆盖索引.md',
+  intro: '二级索引里只有“索引列 + 主键”，要返回的列不在索引里就得回表（拿主键再翻一次表）。目标：让 EXPLAIN 出现 Using index = 覆盖索引。',
+  reset: true,
+  steps: [
+    { t: 'info', title: '先记住这个模型', desc: '主键索引（聚簇）= 表的“正文”，叶子存整行；二级索引 = 另排的“目录”，叶子只存 (索引列…, 主键 id)。<b>SELECT 的列不在索引里 → 每行回表一次（主键随机 IO）。</b>' },
+    { t: 'run', title: '业务 SQL：分类 37 的上架商品列表（共 847 个）', desc: '', sql: "SELECT COUNT(*) AS cnt FROM mall_product WHERE category_id = 37 AND status = 1;" },
+    { t: 'run', title: '第 1 步：无索引时 EXPLAIN SELECT *', desc: '', observe: '预期：ALL / rows≈199455 / Using where; Using filesort。', sql: `EXPLAIN ${Q_P_ALL};` },
+    { t: 'run', title: '第 2 步：建联合索引 (category_id, status, price)', desc: '等值+排序一次吃进索引。', sql: 'CREATE INDEX idx_cat_status_price ON mall_product (category_id, status, price);' },
+    { t: 'run', title: 'EXPLAIN SELECT *（三列索引已建）', desc: '', observe: '预期：ref / rows≈847 / Backward index scan（排序省了）——但 Extra 里【没有 Using index】：product_name、create_time 不在索引里，仍要回表。', sql: `EXPLAIN ${Q_P_ALL};` },
+    { t: 'run', title: 'EXPLAIN 只查 4 列（其中 stock 不在索引）——还是回表', desc: '只要有一个需要的列不在索引里，回表就跑不掉。', observe: '预期：和上一步几乎一样（没有 Using index）。', sql: `EXPLAIN ${Q_P_LIGHT};` },
+    { t: 'run', title: '第 3 步：把 stock 也“塞进”索引', desc: '把要返回的列加入索引 → 覆盖索引。', sql: 'DROP INDEX idx_cat_status_price ON mall_product;' },
+    { t: 'run', title: '（接上一步）CREATE INDEX idx_cat_status_price_stock', desc: '', sql: 'CREATE INDEX idx_cat_status_price_stock ON mall_product (category_id, status, price, stock);' },
+    { t: 'run', title: 'EXPLAIN 只查索引里有的列 —— Using index 出现了！', desc: '', observe: '预期：Extra=Backward index scan; Using index。“Using index”=覆盖索引=不用回表。id 为什么免费？二级索引叶子自带主键。', sql: `EXPLAIN ${Q_P_LIGHT};` },
+    { t: 'run', title: '同一覆盖索引，SELECT * 却还是回表', desc: 'product_name / create_time 索引里没有 → 又要回表。', observe: '预期：Extra 只有 Backward index scan，没有 Using index。', sql: `EXPLAIN ${Q_P_ALL};` },
+    { t: 'info', title: '为什么别随手 SELECT *？', desc: 'SELECT * 意味着要“整行”，任何二级索引都装不下整行 → 每个命中行都回表。行数少没感觉；命中几千行/表很宽时就是几千次随机 IO。<br><b>列表查询按需写列</b>，既省流量，又给覆盖索引留机会（覆盖索引也别贪，只加给高频查询）。' },
+    { t: 'run', title: '彩蛋：统计接口也能“只扫索引”', desc: 'category_id / price / stock / 主键都在索引里 → 聚合直接扫索引，不碰表。', observe: '预期：type=index / rows≈199455 / Extra=Using index（无临时表、无 filesort）。', sql: 'EXPLAIN SELECT category_id, COUNT(*) AS c, ROUND(AVG(price), 2) AS avg_p, SUM(stock) AS s FROM mall_product GROUP BY category_id;' }
+  ]
+},
+/* ============================ 05 ============================ */
+{
+  id: '05', no: '05', name: '索引失效', doc: 'docs/mysql-index/05-索引失效.md',
+  intro: '五类最常见的“索引白建”：对列用函数、隐式类型转换、LIKE 前导通配、不满足最左前缀、OR 乱拼。每个场景都：错误 SQL → EXPLAIN → 修复 → 再 EXPLAIN。',
+  reset: true,
+  steps: [
+    { t: 'info', title: '失效的本质一句话', desc: 'B+ 树能加速的前提是“能直接比较索引列的原值”。只要 MySQL 没法直接比原值（函数/转类型/%开头/断最左/OR 乱拼），索引就废了。' },
+
+    { t: 'info', title: '场景① 对索引列使用函数', desc: '后台查“2024-06-15 当天的订单”。先给 create_time 建索引。' },
+    { t: 'run', title: '给 create_time 建索引', desc: '', sql: 'CREATE INDEX idx_ct ON mall_order (create_time);' },
+    { t: 'run', title: '✗ 错误写法：DATE(create_time) 套在索引列上', desc: '', observe: '预期：type=ALL / key=NULL / rows≈996250。索引里存的是 create_time 原值，不是 DATE() 算出来的值。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE DATE(create_time) = '2024-06-15' LIMIT 20;` },
+    { t: 'run', title: '✓ 修改：写成“半开区间”，函数从列上挪走', desc: '语义完全等价，但这次列是原值，可以用索引。', observe: '预期：type=range / key=idx_ct / rows≈1381。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE create_time >= '2024-06-15 00:00:00' AND create_time < '2024-06-16 00:00:00' LIMIT 20;` },
+    { t: 'run', title: '清理场景①的演示索引', desc: '', sql: 'DROP INDEX idx_ct ON mall_order;' },
+
+    { t: 'info', title: '场景② 隐式类型转换', desc: 'mall_user.phone 是 VARCHAR。Java 里手机号常被当成数字传——让列和数字比，MySQL 会把【列】转成数字（偷偷套 CAST），索引失效。' },
+    { t: 'run', title: '先确保 phone 有索引', desc: '', sql: 'CREATE INDEX idx_user_phone ON mall_user (phone);' },
+    { t: 'run', title: '✗ 数字比较：phone = 13713529579（没有引号）', desc: '', observe: '预期：possible_keys 里有 idx_user_phone，但 key=NULL、type=ALL。“可能用”≠“用上”。', sql: 'EXPLAIN SELECT * FROM mall_user WHERE phone = 13713529579;' },
+    { t: 'run', title: '✓ 修改：传字符串', desc: '', observe: '预期：type=ref / key=idx_user_phone / rows=1。字段是 VARCHAR 就传字符串。', sql: `EXPLAIN SELECT * FROM mall_user WHERE phone = '${PHONE_PLACEHOLDER}';` },
+
+    { t: 'info', title: '场景③ LIKE 前导通配 %xxx', desc: '按手机号“号段”搜用户：前缀 LIKE 相当于范围，能走索引；前导 % 不知道从树的哪个分支二分。' },
+    { t: 'run', title: '✓ LIKE \'1371%\'（前缀）', desc: '', observe: '预期：type=range / key=idx_user_phone / rows≈324。', sql: "EXPLAIN SELECT id, username, phone FROM mall_user WHERE phone LIKE '1371%';" },
+    { t: 'run', title: '✗ LIKE \'%1371%\'（前导通配）', desc: '', observe: '预期：type=ALL / rows≈299124。真要“包含”查询得上 ES/全文索引。', sql: "EXPLAIN SELECT id, username, phone FROM mall_user WHERE phone LIKE '%1371%';" },
+
+    { t: 'info', title: '场景④ 不满足最左前缀', desc: '线上已有“我的订单”索引 (user_id, status, create_time)，运营却按“状态+时间段”查（没带 user_id）。' },
+    { t: 'run', title: '建“我的订单”联合索引', desc: '', sql: 'CREATE INDEX idx_user_status_ct ON mall_order (user_id, status, create_time);' },
+    { t: 'run', title: '✗ 按 status + 时间区间查（没有 user_id）', desc: '', observe: '预期：ALL / key=NULL / rows≈996250 / filesort。索引最左列是 user_id，没带它=整个用不上。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE status = 1 AND create_time BETWEEN '2024-06-01 00:00:00' AND '2024-06-30 23:59:59' ORDER BY create_time DESC LIMIT 20;` },
+    { t: 'run', title: '✓ 修复：为“状态+时间段”这个真实高频形态补索引', desc: '如果这是另一种高频查询，就为它建 (status, create_time)，而不是硬套旧索引。', sql: 'CREATE INDEX idx_order_status_ct ON mall_order (status, create_time);' },
+    { t: 'run', title: '再 EXPLAIN 同一句', desc: '', observe: '预期：range / idx_order_status_ct / rows≈39158 / 无 filesort。这正是第六阶段线上事故的修复。', sql: `EXPLAIN SELECT ${ORDER_COLS} FROM mall_order WHERE status = 1 AND create_time BETWEEN '2024-06-01 00:00:00' AND '2024-06-30 23:59:59' ORDER BY create_time DESC LIMIT 20;` },
+    { t: 'run', title: '清理场景④的新增索引（阶段6会再建）', desc: '', sql: 'DROP INDEX idx_order_status_ct ON mall_order;' },
+
+    { t: 'info', title: '场景⑤ OR 条件', desc: 'OR 语义是“两边满足一个就算”。想让两边都高效就得分别走索引再合并（index_merge）；一边走不了 → 整句全表扫。' },
+    { t: 'run', title: '✗ username 有索引，email 没索引：OR 退化成全表扫', desc: '', observe: '预期：ALL / rows≈299124（possible_keys 只有 uk_username）。', sql: "EXPLAIN SELECT id, username, phone, email FROM mall_user WHERE username = 'user_1' OR email = 'user2@example.com';" },
+    { t: 'run', title: '✓ 修复①：给 email 也建索引 → index_merge', desc: '', observe: '预期：type=index_merge / Extra=Using union(uk_username, idx_user_email)。', sql: 'CREATE INDEX idx_user_email ON mall_user (email);' },
+    { t: 'run', title: '再 EXPLAIN 同一句 OR', desc: '', sql: "EXPLAIN SELECT id, username, phone, email FROM mall_user WHERE username = 'user_1' OR email = 'user2@example.com';" },
+    { t: 'run', title: '✓ 修复②（推荐）：UNION ALL 拆成两条，各自走索引', desc: '', observe: '预期：两段分别 const(uk_username) 与 ref(idx_user_email)，rows 各 1。', sql: "EXPLAIN SELECT id, username, phone, email FROM mall_user WHERE username = 'user_1' UNION ALL SELECT id, username, phone, email FROM mall_user WHERE email = 'user2@example.com';" },
+    { t: 'run', title: '清理场景⑤的 email 索引', desc: '', sql: 'DROP INDEX idx_user_email ON mall_user;' }
+  ]
+},
+/* ============================ 06 ============================ */
+{
+  id: '06', no: '06', name: '慢 SQL 排查实战', doc: 'docs/mysql-index/06-慢SQL排查实战.md',
+  intro: '完整模拟线上事故：“后台导出 6 月已支付订单”突然变慢。按企业流程 7 步走：复现 → EXPLAIN → 定位 → 修复 → 再 EXPLAIN → 验证 → 回归。',
+  reset: true,
+  steps: [
+    { t: 'info', title: '事故现场还原', desc: '订单 100 万行。开发时为“我的订单”接口建过联合索引 (user_id, status, create_time)；运营报慢的是<b>按状态+时间段</b>的接口（没有 user_id）。' },
+    { t: 'run', title: '生产基线：建“我的订单”联合索引', desc: '', sql: 'CREATE INDEX idx_user_status_ct ON mall_order (user_id, status, create_time);' },
+    { t: 'run', title: '看当前订单表的索引', desc: '', sql: 'SHOW INDEX FROM mall_order;' },
+    { t: 'run', title: '复现慢接口：先 SELECT（体验卡顿）', desc: '', observe: '预期：实测 200ms 上下（无索引时翻 100 万行）。', sql: Q_ADMIN + ';' },
+    { t: 'run', title: 'EXPLAIN 这条慢 SQL —— 破案关键', desc: '', observe: '预期：type=ALL / key=NULL / rows≈996250 / Using filesort。', sql: `EXPLAIN ${Q_ADMIN};` },
+    { t: 'run', title: '对照：老接口“我的订单”没坏', desc: 'user_id 在最左列，索引照常工作 —— 说明是“新查询形态缺索引”，不是数据量问题。', observe: '预期：ref / idx_user_status_ct / Backward index scan。', sql: `EXPLAIN ${Q_MY};` },
+    { t: 'info', title: '定位根因', desc: '慢 SQL 形态是 (status, create_time)，现有索引是 (user_id, status, create_time)。按最左前缀，没带 user_id → 索引用不上。<b>结论：索引与 SQL 形态不匹配（线上最常见）</b>，不是数据变多那么简单。' },
+    { t: 'run', title: '修复：为这个真实高频形态单独建 (status, create_time)', desc: '等值列在前、排序列殿后 → 索引内部“同状态段内 create_time 有序”，倒着读就能满足 ORDER BY DESC。', sql: 'CREATE INDEX idx_order_status_ct ON mall_order (status, create_time);' },
+    { t: 'run', title: '再 EXPLAIN 同一句慢 SQL', desc: '', observe: '预期：range / idx_order_status_ct / rows≈39158 / 无 filesort。', sql: `EXPLAIN ${Q_ADMIN};` },
+    { t: 'run', title: '再跑一次 SELECT，感受耗时', desc: '', observe: '预期：20ms 级（含连接开销）。真实服务器耗时约 7ms、Rows_examined 从 100 万 → 50。', sql: Q_ADMIN + ';' },
+    { t: 'run', title: '回归：SHOW INDEX 确认两张索引各司其职', desc: '', sql: 'SHOW INDEX FROM mall_order;' },
+    { t: 'info', title: '阶段6 总结：这套排查流程背下来', desc: '①复现抓慢SQL → ②EXPLAIN 盯 type/key/rows/Extra → ③定位（没索引？还是索引没对上 SQL 形态？对照阶段5 五类失效）→ ④改 SQL 或按最左前缀补索引 → ⑤再 EXPLAIN 对比 rows → ⑥看慢日志 Query_time / Rows_examined → ⑦回归其它查询。<br><b>记忆锚点：让索引匹配查询形态，用 rows 与 Rows_examined 验收。</b>' }
+  ]
+},
+/* ============================ 07 速查表 ============================ */
+{
+  id: '07', no: '07', name: '速查表', doc: 'docs/mysql-index/07-索引实战速查表.md',
+  intro: '一张图/几张表，日常开发直接抄。完整版（含面试答案）见文档 07-索引实战速查表.md。',
+  steps: [
+    { t: 'info', title: 'EXPLAIN 只看 4+2 列', desc: '<b>type</b>：const &gt; ref &gt; range &gt; index &gt; ALL（见 ALL 要警惕）<br><b>key</b>：真正用到的索引（possible_keys 有 ≠ 用上）<br><b>rows</b>：预估扫描行数，和表总行数比数量级<br><b>Extra</b>：Using filesort / Using temporary 要警惕；<b>Using index = 覆盖索引</b>（≠Using index condition）<br><b>key_len / filtered</b>：索引吃了多长前缀 / 扫完还要过滤多少。' },
+    { t: 'info', title: '联合索引列序 & 索引失效 5 杀', desc: '列序：<b>等值列在前（区分度高者优先）→ 范围列 → 排序列殿后</b>。<br>失效：①对列套函数 ②隐式类型转换（VARCHAR 传字符串）③LIKE \'%xxx\' ④不满足最左前缀 ⑤OR 里有无索引的分支（改 UNION ALL）。' },
+    { t: 'info', title: '慢 SQL 排查 7 步 & 一句话面试答案', desc: '①抓慢SQL → ②EXPLAIN → ③定位 → ④修复 → ⑤再EXPLAIN → ⑥慢日志验证 → ⑦回归。<br>面试：为什么索引快？= 有序 B+ 树把 O(N) 全表扫变成 O(logN) 定位，还天然支持范围/排序。更多面试答案见 07 文档。' }
+  ]
+}
+];
+
+/* ---------------- 基础工具 ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fillPhone(sql) { return sql.split(PHONE_PLACEHOLDER).join(SAMPLE_PHONE); }
+
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.className = 'toast', 2600);
+}
+
+async function post(path, body) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {})
+  });
+  return r.json();
+}
+
+/* ---------------- 数据概览 ---------------- */
+async function refreshState(silent) {
+  const box = $('#stateBox');
+  try {
+    const resp = await (await fetch(API + '/state')).json();
+    if (resp.code !== 200) throw new Error(resp.message || 'state 加载失败');
+    const data = resp.data;
+    SAMPLE_PHONE = data.samplePhone || SAMPLE_PHONE;
+    const sp = $('#samplePhone');
+    if (sp) sp.textContent = SAMPLE_PHONE;
+    if (!data.tables || !data.tables.length) { box.innerHTML = '<div class="empty-tip">还没有 mall_* 表，请先造数（见阶段00）。</div>'; return; }
+    box.innerHTML = data.tables.map(t => {
+      const idxHtml = (t.indexes && t.indexes.length)
+        ? t.indexes.map(i => '<span class="idx-tag ' + clsOf(i.name) + '">' + esc(i.name) + '(' + esc(i.columns.join(',')) + ')</span>').join('')
+        : '<span class="empty-tip">无二级索引</span>';
+      return '<div class="tbl-card"><div class="head"><b>' + esc(t.table) + '</b>' +
+        '<span class="idx-tag pk">' + esc(fmtNum(t.rows)) + ' 行</span></div>' +
+        '<div class="rows">数据 ' + (t.dataMb ?? '-') + 'MB · 索引 ' + (t.idxMb ?? '-') + 'MB</div>' +
+        '<div class="idx-tags">' + idxHtml + '</div></div>';
+    }).join('');
+    if (!silent) toast('概览已刷新');
+  } catch (e) {
+    box.innerHTML = '<div class="err-box">数据概览加载失败：' + esc(e.message) + '</div>';
+  }
+}
+function clsOf(name) {
+  if (/^PRIMARY$/i.test(name)) return 'pk';
+  if (/^uk_/i.test(name)) return 'uk';
+  return '';
+}
+function fmtNum(n) {
+  const v = Number(n); if (!isFinite(v)) return String(n ?? '-');
+  return v >= 10000 ? (v / 10000).toFixed(v % 10000 === 0 ? 0 : 1) + ' 万' : String(v);
+}
+
+async function resetAll() {
+  const btn = $('#btnReset');
+  btn.disabled = true;
+  try {
+    const resp = await post(API + '/reset-indexes', {});
+    if (resp.code !== 200) throw new Error(resp.message || '重置失败');
+    const list = resp.data || [];
+    toast('已回到初始态，删除了 ' + list.length + ' 个本教程索引');
+    await refreshState(true);
+  } catch (e) {
+    toast('重置失败：' + e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------------- 左侧阶段导航 ---------------- */
+function renderNav(activeId) {
+  $('#stageNav').innerHTML = STAGES.map(s =>
+    '<div class="stage-item' + (s.id === activeId ? ' active' : '') + '" data-id="' + s.id + '">' +
+      '<div class="stage-no">' + s.no + '</div>' +
+      '<div class="txt"><div class="t">' + esc(s.name) + '</div>' +
+      '<div class="d">' + (s.doc ? s.doc.replace(/^docs\/mysql-index\//, '') : '') + '</div></div>' +
+    '</div>').join('');
+  $$('#stageNav .stage-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      location.hash = 'stage-' + id;
+      renderStage(id);
+    });
+  });
+}
+
+/* ---------------- 右侧：渲染一个阶段 ---------------- */
+function renderStage(id) {
+  const stage = STAGES.find(s => s.id === id) || STAGES[0];
+  renderNav(id);
+  const st = stage.steps.map((s, i) => stepHtml(stage, s, i + 1)).join('');
+
+  const resetBtn = stage.reset
+    ? '<button class="btn btn-blue" data-reset-stage>① 先回到初始态</button>'
+      + '<span class="hint">推荐每阶段开始前点一次（只删教程二级索引，不删数据）</span>'
+    : '';
+
+  $('#main').innerHTML =
+    '<div class="stage-head">' +
+      '<h2>阶段 ' + stage.no + ' · ' + esc(stage.name) + '</h2>' +
+      (stage.doc ? '<div class="doc">📄 配套文档：' + esc(stage.doc) + '（仓库内，可对照细读）</div>' : '') +
+      '<p>' + esc(stage.intro) + '</p>' +
+      (stage.banner ? '<div class="banner warn">' + stage.banner + '</div>' : '') +
+      '<div class="stage-tools">' + resetBtn + '<button class="btn btn-ghost" id="refreshTop">↻ 刷新概览</button></div>' +
+    '</div>' +
+    (stage.id === '00' ? '<div class="banner">从哪开始？推荐顺序 00→01→…→06。<b>没头绪就先点“阶段01”，按卡片从上到下执行</b>，每步看右边返回结果与“观察点”。</div>' : '') +
+    st +
+    '<div class="footer-note">以上结果均为本机 MySQL 真实执行。SQL 可自由修改后重跑（例如把 userId=29997 换成左侧概览里其他用户）。' +
+    ' 学习过程中随时点左侧“回到初始态”重来。' +
+    (stage.doc ? ' 完整图文讲解与面试表达见 ' + esc(stage.doc) + '。' : '') + '</div>';
+}
+
+function stepHtml(stage, s, idx) {
+  if (s.t === 'info') {
+    return '<div class="step"><div class="s-head"><div class="s-no">✓</div><div class="s-title">' + esc(s.title) + '</div></div>' +
+      '<div class="s-body"><div class="s-desc">' + s.desc + '</div></div></div>';
+  }
+  const area = s.sql ? '<textarea class="sql-area" data-sql-area spellcheck="false">' + esc(fillPhone(s.sql)) + '</textarea>' : '';
+  return '<div class="step">' +
+    '<div class="s-head"><div class="s-no">' + idx + '</div><div class="s-title">' + esc(s.title) + '</div></div>' +
+    '<div class="s-body">' +
+      (s.desc ? '<div class="s-desc">' + s.desc + '</div>' : '') +
+      (s.observe ? '<div class="observe">👀 观察点：' + s.observe + '</div>' : '') +
+      area +
+      '<div class="s-actions">' +
+        '<button class="btn btn-blue" data-run>▶ 运行</button>' +
+        '<button class="btn btn-ghost" data-copy>复制</button>' +
+        '<span class="spent"></span>' +
+      '</div>' +
+      '<div class="res"></div>' +
+    '</div></div>';
+}
+
+/* ---------------- 步骤运行 ---------------- */
+async function runStep(btn) {
+  const stepEl = btn.closest('.step');
+  const area = stepEl.querySelector('[data-sql-area]');
+  const sql = area ? area.value.trim() : '';
+  if (!sql) { toast('SQL 为空', true); return; }
+  const res = stepEl.querySelector('.res');
+  const spent = stepEl.querySelector('.spent');
+  const copyBtn = stepEl.querySelector('[data-copy]');
+
+  btn.disabled = true;
+  res.innerHTML = '<div class="err-box" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">⏳ 执行中…（100万行表的全表扫可能需要几百毫秒，请稍候）</div>';
+  spent.textContent = '';
+  try {
+    const resp = await post(API + '/run', { sql });
+    if (resp.code !== 200) throw new Error(resp.message || '请求失败');
+    const d = resp.data;
+    spent.textContent = '执行耗时 ' + (d.elapsedMs ?? '-') + ' ms';
+    if (!d.ok) {
+      res.innerHTML = '<div class="err-box">❌ ' + esc(d.errorMessage) + '</div>';
+      return;
+    }
+    if (d.kind === 'query') {
+      res.innerHTML = queryResultHtml(d);
+    } else {
+      res.innerHTML = '<div class="ok-box">✅ 执行成功（' + (d.elapsedMs ?? '-') + ' ms）—— 索引已变更，自动刷新左侧概览</div>';
+      refreshState(true);
+    }
+  } catch (e) {
+    res.innerHTML = '<div class="err-box">❌ ' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    if (copyBtn) { /* noop */ }
+  }
+}
+
+/* 结果渲染：普通表 / EXPLAIN 解读 / SHOW INDEX */
+function queryResultHtml(d) {
+  const rows = d.rows || [];
+  const cols = orderColumns(d.columns || [], rows);
+  let chips = '';
+  if (cols.includes('type') && rows.length) {
+    const r = rows[0];
+    const extraS = String(r.Extra || '');
+    const isCover = /Using index/i.test(extraS) && !/Using index condition/i.test(extraS);
+    chips = '<div class="explain-chips">' +
+      chip('type', r.type, 'type-' + String(r.type)) +
+      chip('key', r.key, r.key ? 'good' : 'bad') +
+      chip('rows', r.rows, '') +
+      chip('extra', r.Extra, /filesort|temporary/i.test(extraS) ? 'bad' : (isCover ? 'good' : '')) +
+      '</div>';
+  }
+  if (!rows.length) {
+    return chips + '<div class="ok-box">✅ 查询成功，返回 0 行</div>';
+  }
+  let head = '<tr>' + cols.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>';
+  let body = rows.slice(0, 300).map(row =>
+    '<tr>' + cols.map(c => '<td class="num">' + esc(cell(row[c])) + '</td>').join('') + '</tr>').join('');
+  let cap = '<div class="ok-box">✅ 查询成功：' + rows.length + ' 行' + (rows.length > 300 ? '（仅显示前 300 行）' : '') + '</div>';
+  return chips + cap + '<div class="tbl-wrap"><table>' + head + body + '</table></div>';
+}
+function chip(label, val, cls) {
+  return '<span class="chip ' + cls + '"><b>' + esc(String(val ?? 'NULL')) + '</b></span>';
+}
+function cell(v) {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'object') {
+    if (v instanceof Date) return v.toLocaleString();
+    return JSON.stringify(v);
+  }
+  return v;
+}
+function orderColumns(cols, rows) {
+  if (!cols.length && rows.length) cols = Object.keys(rows[0]);
+  if (cols.includes('type')) {
+    const order = ['id','select_type','table','partitions','type','possible_keys','key','key_len','ref','rows','filtered','Extra'];
+    const rest = cols.filter(c => !order.includes(c)).sort();
+    return order.filter(c => cols.includes(c)).concat(rest);
+  }
+  if (cols.includes('Key_name')) {
+    const order = ['Table','Non_unique','Key_name','Seq_in_index','Column_name','Collation','Cardinality','Sub_part','Packed','Null','Index_type','Comment'];
+    const rest = cols.filter(c => !order.includes(c));
+    return order.filter(c => cols.includes(c)).concat(rest);
+  }
+  return cols.slice().sort((a, b) => a.localeCompare(b));
+}
+
+/* ---------------- 全局事件 ---------------- */
+$('#main').addEventListener('click', async ev => {
+  const runBtn = ev.target.closest('[data-run]');
+  if (runBtn) { runStep(runBtn); return; }
+  const copyBtn = ev.target.closest('[data-copy]');
+  if (copyBtn) {
+    const area = copyBtn.closest('.step').querySelector('[data-sql-area]');
+    if (area) {
+      try { await navigator.clipboard.writeText(area.value); toast('已复制 SQL'); }
+      catch (e) { area.select(); document.execCommand('copy'); toast('已复制 SQL'); }
+    }
+    return;
+  }
+  if (ev.target.closest('[data-reset-stage]')) { resetAll(); return; }
+  if (ev.target.closest('#refreshTop')) { refreshState(); return; }
+});
+$('#btnRefresh').addEventListener('click', () => refreshState());
+$('#btnReset').addEventListener('click', resetAll);
+
+/* ---------------- 启动 ---------------- */
+(async function boot() {
+  const target = (location.hash.match(/stage-(\d+)/) || [])[1] || '00';
+  renderStage(target);
+  await refreshState(true);
+})();
+</script>
+</body>
+</html>
